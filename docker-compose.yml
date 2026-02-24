@@ -4,7 +4,7 @@ services:
     container_name: live-cam
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "8081:8080"
     devices:
       - "/dev/video0:/dev/video0"
     environment:

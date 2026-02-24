@@ -1,14 +1,8 @@
 FROM python:3.10-slim
 
-# Instala as dependências do sistema para o PyAV e WebRTC
+# Dependências mínimas para o OpenCV processar a imagem
 RUN apt-get update && apt-get install -y \
-    libavdevice-dev \
-    libavfilter-dev \
-    libopus-dev \
-    libvpx-dev \
-    pkg-config \
-    v4l-utils \
-    gcc \
+    libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
