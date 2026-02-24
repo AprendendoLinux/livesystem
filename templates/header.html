@@ -1,0 +1,11 @@
+<header class="top-nav">
+    <div class="logo">
+        <i class="fas fa-satellite-dish"></i> LiveSystem
+    </div>
+    <div class="nav-buttons">
+        {% if is_admin %}
+        <a href="/users" class="nav-btn btn-users"><i class="fas fa-users-cog"></i> Usuários</a>
+        {% endif %}
+        <a href="/logout" class="nav-btn btn-logout"><i class="fas fa-sign-out-alt"></i> Sair</a>
+    </div>
+</header>

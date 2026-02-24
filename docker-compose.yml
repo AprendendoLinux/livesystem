@@ -8,7 +8,7 @@ services:
     devices:
       - "/dev/video0:/dev/video0"
     volumes:
-      - /srv/webcam/sqlite/data:/app/data
+      - /srv/webcam/sqlite:/app/data
     environment:
       - PYTHONUNBUFFERED=1 
       # ==================================
@@ -44,3 +44,12 @@ services:
       - "3306:3306"
     volumes:
       - /srv/webcam/nysql:/var/lib/mysql
+  
+  adminer:
+    image: adminer:4.8.1
+    restart: unless-stopped
+    container_name: adminer
+    ports:
+      - "8081:8080"
+    volumes:
+      - /srv/webcam/sqlite:/data

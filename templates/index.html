@@ -7,17 +7,22 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
     <style>
-        /* A Mágica do Box-Sizing: impede que padding/bordas quebrem o layout */
         * { box-sizing: border-box; }
-        
         :root { --bg-base: #0b0c10; --card-bg: rgba(31, 40, 51, 0.85); --neon-blue: #66fcf1; --neon-red: #ff4b4b; --text-main: #ffffff; --text-muted: #8a9ba8; }
         
-        /* Ajuste do Body para remover scroll vertical fantasma */
-        body { background: radial-gradient(circle at 50% 0%, #1a222c 0%, var(--bg-base) 70%); color: var(--text-main); font-family: 'Rajdhani', sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; }
+        /* NOTA: padding-top: 100px para compensar o Header fixo */
+        body { background: radial-gradient(circle at 50% 0%, #1a222c 0%, var(--bg-base) 70%); color: var(--text-main); font-family: 'Rajdhani', sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 100px 20px 70px 20px; }
         
-        /* Margem inferior no card para compensar o rodapé */
-        .stream-card { background: var(--card-bg); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 16px; padding: 24px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); width: 100%; max-width: 900px; margin-bottom: 50px; }
-        
+        /* CSS DO HEADER FIXO (Mesmo do Users) */
+        .top-nav { position: fixed; top: 0; left: 0; width: 100%; height: 60px; background: rgba(11, 12, 16, 0.98); border-bottom: 1px solid rgba(255, 255, 255, 0.08); display: flex; justify-content: space-between; align-items: center; padding: 0 30px; z-index: 1000; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        .logo { font-size: 1.4rem; font-weight: 700; color: var(--neon-blue); letter-spacing: 2px; text-transform: uppercase; }
+        .nav-buttons { display: flex; gap: 15px; }
+        .nav-btn { color: var(--text-muted); text-decoration: none; font-weight: 600; padding: 8px 15px; border-radius: 6px; border: 1px solid transparent; transition: all 0.3s; font-family: 'Rajdhani', sans-serif; text-transform: uppercase; font-size: 0.9rem; }
+        .btn-logout { background: rgba(255, 75, 75, 0.1); border-color: rgba(255, 75, 75, 0.3); color: #ff4b4b; }
+        .btn-users { background: rgba(102, 252, 241, 0.1); border-color: rgba(102, 252, 241, 0.3); color: var(--neon-blue); }
+        .nav-btn:hover { filter: brightness(1.3); }
+
+        .stream-card { background: var(--card-bg); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 16px; padding: 24px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); width: 100%; max-width: 900px; margin-bottom: 20px; }
         .header-panel { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
         .header-badges { display: flex; gap: 10px; align-items: center; }
         h2 { color: var(--neon-blue); text-transform: uppercase; letter-spacing: 1.5px; margin: 0; font-size: 1.5rem; font-weight: 700; }
@@ -25,11 +30,10 @@
         img#video { width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease; transform-origin: center center; display: none; }
         .placeholder { position: absolute; color: #555; font-size: 1.5rem; text-transform: uppercase; letter-spacing: 2px; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; }
         .placeholder.hidden { display: none; }
-        .controls { display: flex; gap: 10px; margin-top: 20px; justify-content: center; flex-wrap: wrap; }
         
-        /* Botões padronizados com text-align center para o block no mobile */
-        button, a.btn-logout { text-align: center; display: block; background: #2b3a4a; color: #888; border: 1px solid #555; padding: 10px 18px; border-radius: 6px; cursor: pointer; font-weight: 600; text-transform: uppercase; font-size: 0.9rem; transition: all 0.2s ease; text-decoration: none; font-family: 'Rajdhani', sans-serif;}
-        button:hover, a.btn-logout:hover { filter: brightness(1.2); }
+        .controls { display: flex; gap: 10px; margin-top: 20px; justify-content: center; flex-wrap: wrap; }
+        button { text-align: center; display: block; background: #2b3a4a; color: #888; border: 1px solid #555; padding: 10px 18px; border-radius: 6px; cursor: pointer; font-weight: 600; text-transform: uppercase; font-size: 0.9rem; transition: all 0.2s ease; font-family: 'Rajdhani', sans-serif;}
+        button:hover { filter: brightness(1.2); }
         button.active-blue { color: var(--bg-base); background: var(--neon-blue); border-color: var(--neon-blue); box-shadow: 0 0 10px rgba(102, 252, 241, 0.6); }
         button.active-red { color: white; background: var(--neon-red); border-color: var(--neon-red); box-shadow: 0 0 10px rgba(255, 75, 75, 0.6); }
         .status-badge { padding: 6px 14px; border-radius: 20px; font-size: 0.9em; font-weight: bold; background: rgba(255,255,255,0.05); color: var(--text-muted); font-family: 'Share Tech Mono', monospace; }
@@ -42,11 +46,11 @@
         .footer-separator { color: var(--text-muted); opacity: 0.5; }
         .footer-version { color: #39ff14; background: rgba(57, 255, 20, 0.08); padding: 2px 10px; border-radius: 4px; border: 1px solid rgba(57, 255, 20, 0.2); font-family: 'Share Tech Mono', monospace; font-weight: bold; }
         
-        /* Ajuste Mobile: Garante que controles não vazem do width */
-        @media (max-width: 768px) { .header-panel { flex-direction: column; text-align: center; } .controls { flex-direction: column; width: 100%; gap: 10px; margin-top: 15px; } button, a.btn-logout { width: 100%; } .fixed-footer { height: auto; padding: 10px 5px; flex-direction: column; gap: 5px; } .footer-separator { display: none; } }
-    </style>
+        @media (max-width: 768px) { .top-nav { padding: 0 15px; } .logo { font-size: 1.1rem; } .nav-buttons { gap: 8px; } .nav-btn { padding: 6px 10px; font-size: 0.8rem; } .header-panel { flex-direction: column; text-align: center; } .controls { flex-direction: column; width: 100%; gap: 10px; margin-top: 15px; } button { width: 100%; } .fixed-footer { height: auto; padding: 10px 5px; flex-direction: column; gap: 5px; } .footer-separator { display: none; } }
+      </style>
 </head>
 <body>
+    {% include 'header.html' %}
     <div class="stream-card">
         <div class="header-panel">
             <h2><i class="fas fa-video"></i> Live Monitor</h2>
@@ -70,7 +74,6 @@
             <button id="btnZoomOut" onclick="zoomOut()"><i class="fas fa-search-minus"></i></button>
             <button id="btnResetZoom" onclick="resetZoom()"><i class="fas fa-compress"></i></button>
             <button id="btnFullscreen" onclick="toggleFullScreen()"><i class="fas fa-expand"></i> Tela Cheia</button>
-            <a href="/logout" class="btn-logout"><i class="fas fa-sign-out-alt"></i> Sair</a>
         </div>
     </div>
 
