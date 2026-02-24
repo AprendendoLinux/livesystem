@@ -4,6 +4,7 @@ import json
 import logging
 import cv2
 import aiomysql
+import aiosqlite
 import bcrypt
 import aiohttp_jinja2
 import jinja2
@@ -14,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 ROOT = os.path.dirname(__file__)
 VERSION = os.environ.get('APP_VERSION', 'dev-local')
+DB_TYPE = os.environ.get('DB_TYPE', 'sqlite').lower()
 
 connected_clients = set()
 camera_task = None
@@ -22,60 +24,93 @@ db_pool = None
 
 async def init_db(app):
     global db_pool
-    # Aumentamos o loop para 20 tentativas de 5 segundos (100 segundos de tolerância)
-    for i in range(20):
-        try:
-            db_pool = await aiomysql.create_pool(
-                host=os.environ.get('DB_HOST', 'db'),
-                port=3306,
-                user=os.environ.get('DB_USER', 'stream_user'),
-                password=os.environ.get('DB_PASS', 'stream_pass'),
-                db=os.environ.get('DB_NAME', 'stream_db'),
-                autocommit=True
-            )
-            logger.info("Conectado ao MySQL com sucesso!")
-            break
-        except Exception as e:
-            logger.warning(f"Aguardando o MySQL inicializar os volumes (Tentativa {i+1}/20)... Detalhe: {e}")
-            await asyncio.sleep(5)
     
-    if not db_pool:
-        logger.error("Falha crítica: Tempo esgotado ao tentar conectar no banco de dados.")
-        return
-
-    # Criação da tabela e usuário padrão (admin / admin123)
-    async with db_pool.acquire() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute("""
-                CREATE TABLE IF NOT EXISTS users (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    username VARCHAR(50) UNIQUE NOT NULL,
-                    password_hash VARCHAR(255) NOT NULL
+    if DB_TYPE == 'mysql':
+        for i in range(20):
+            try:
+                db_pool = await aiomysql.create_pool(
+                    host=os.environ.get('DB_HOST', 'db'),
+                    port=3306,
+                    user=os.environ.get('DB_USER', 'stream_user'),
+                    password=os.environ.get('DB_PASS', 'stream_pass'),
+                    db=os.environ.get('DB_NAME', 'stream_db'),
+                    autocommit=True
                 )
-            """)
-            await cur.execute("SELECT * FROM users WHERE username='admin'")
-            if not await cur.fetchone():
-                hashed = bcrypt.hashpw(b"admin123", bcrypt.gensalt()).decode('utf-8')
-                await cur.execute("INSERT INTO users (username, password_hash) VALUES (%s, %s)", ('admin', hashed))
-                logger.info("Usuário padrão criado: admin / admin123")
+                logger.info("Conectado ao MySQL com sucesso!")
+                break
+            except Exception as e:
+                logger.warning(f"Aguardando o MySQL inicializar (Tentativa {i+1}/20)...")
+                await asyncio.sleep(5)
+                
+        if not db_pool:
+            logger.error("Falha crítica: Tempo esgotado ao tentar conectar no MySQL.")
+            return
 
-# --- MIDDLEWARE DE AUTENTICAÇÃO ---
+        async with db_pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute("""
+                    CREATE TABLE IF NOT EXISTS users (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        username VARCHAR(50) UNIQUE NOT NULL,
+                        password_hash VARCHAR(255) NOT NULL
+                    )
+                """)
+                await cur.execute("SELECT * FROM users WHERE username='admin'")
+                if not await cur.fetchone():
+                    hashed = bcrypt.hashpw(b"admin123", bcrypt.gensalt()).decode('utf-8')
+                    await cur.execute("INSERT INTO users (username, password_hash) VALUES (%s, %s)", ('admin', hashed))
+                    logger.info("Usuário padrão MySQL criado: admin / admin123")
+                    
+    elif DB_TYPE == 'sqlite':
+        db_path = os.environ.get('DB_NAME', os.path.join(ROOT, 'data/stream.db'))
+        # Garante que a pasta 'data' existe para o volume
+        os.makedirs(os.path.dirname(db_path), exist_ok=True)
+        
+        db_pool = await aiosqlite.connect(db_path)
+        db_pool.row_factory = aiosqlite.Row
+        logger.info(f"Conectado ao SQLite com sucesso em {db_path}!")
+        
+        await db_pool.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL
+            )
+        """)
+        await db_pool.commit()
+        
+        async with db_pool.execute("SELECT * FROM users WHERE username='admin'") as cursor:
+            user = await cursor.fetchone()
+            if not user:
+                hashed = bcrypt.hashpw(b"admin123", bcrypt.gensalt()).decode('utf-8')
+                await db_pool.execute("INSERT INTO users (username, password_hash) VALUES (?, ?)", ('admin', hashed))
+                await db_pool.commit()
+                logger.info("Usuário padrão SQLite criado: admin / admin123")
+
+# --- BANCO DE DADOS: CONSULTA UNIVERSAL ---
+async def get_user_hash(username):
+    if DB_TYPE == 'mysql':
+        async with db_pool.acquire() as conn:
+            async with conn.cursor(aiomysql.DictCursor) as cur:
+                await cur.execute("SELECT password_hash FROM users WHERE username=%s", (username,))
+                row = await cur.fetchone()
+                return row['password_hash'] if row else None
+    else: # sqlite
+        async with db_pool.execute("SELECT password_hash FROM users WHERE username=?", (username,)) as cursor:
+            row = await cursor.fetchone()
+            return row['password_hash'] if row else None
+
+# --- MIDDLEWARE E ROTAS ---
 @web.middleware
 async def auth_middleware(request, handler):
-    # Rotas públicas
     if request.path in ['/login', '/static']:
         return await handler(request)
-    
-    # Verifica cookie
     auth_cookie = request.cookies.get('stream_auth')
     if not auth_cookie or auth_cookie != 'authenticated_session':
-        if request.path == '/ws':
-            return web.Response(status=401)
+        if request.path == '/ws': return web.Response(status=401)
         raise web.HTTPFound('/login')
-        
     return await handler(request)
 
-# --- ROTAS ---
 @aiohttp_jinja2.template('login.html')
 async def login_get(request):
     return {'version': VERSION, 'error': None}
@@ -86,21 +121,15 @@ async def login_post(request):
     username = data.get('username')
     password = data.get('password')
 
-    # Trava de segurança caso o banco não esteja pronto
     if not db_pool:
-        return {'version': VERSION, 'error': 'Sistema inicializando. O banco de dados ainda não está pronto. Tente novamente em alguns segundos.'}
+        return {'version': VERSION, 'error': 'Banco de dados offline. Tente novamente.'}
 
     try:
-        async with db_pool.acquire() as conn:
-            async with conn.cursor(aiomysql.DictCursor) as cur:
-                await cur.execute("SELECT password_hash FROM users WHERE username=%s", (username,))
-                user = await cur.fetchone()
-
-        if user and bcrypt.checkpw(password.encode('utf-8'), user['password_hash'].encode('utf-8')):
+        user_hash = await get_user_hash(username)
+        if user_hash and bcrypt.checkpw(password.encode('utf-8'), user_hash.encode('utf-8')):
             response = web.HTTPFound('/')
-            response.set_cookie('stream_auth', 'authenticated_session', max_age=86400) # 24 horas
+            response.set_cookie('stream_auth', 'authenticated_session', max_age=86400)
             return response
-        
         return {'version': VERSION, 'error': 'Usuário ou senha incorretos!'}
     except Exception as e:
         logger.error(f"Erro durante o login: {e}")
@@ -115,7 +144,6 @@ async def logout(request):
 async def index(request):
     return {'version': VERSION}
 
-# (Mantenha as funções notify_viewers, broadcast_camera e websocket_handler idênticas ao código anterior)
 async def notify_viewers():
     count = len(connected_clients)
     message = json.dumps({"type": "viewers", "count": count})
@@ -136,10 +164,8 @@ async def broadcast_camera():
             if not ret:
                 await asyncio.sleep(0.1)
                 continue
-            
             encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 70]
             ret, buffer = cv2.imencode('.jpg', frame, encode_param)
-            
             if ret:
                 data = buffer.tobytes()
                 current_clients = list(connected_clients)
@@ -192,5 +218,5 @@ app.router.add_get("/logout", logout)
 app.router.add_get("/ws", websocket_handler)
 
 if __name__ == "__main__":
-    logger.info("Sistema Iniciado na porta 8080...")
+    logger.info(f"Sistema Iniciado na porta 8080. Motor de banco de dados: {DB_TYPE.upper()}")
     web.run_app(app, host="0.0.0.0", port=8080, access_log=logger)

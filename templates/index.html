@@ -74,15 +74,7 @@
         </div>
     </div>
 
-    <footer class="fixed-footer">
-        <span class="footer-text">
-            Desenvolvido por <a href="https://www.henrique.tec.br" target="_blank">Henrique Fagundes</a>
-        </span>
-        <span class="footer-separator">|</span>
-        <span class="footer-version">
-            <i class="fas fa-code-branch"></i> {{ version }}
-        </span>
-    </footer>
+    {% include 'footer.html' %}
 
     <script>
         const video = document.getElementById('video'); const placeholder = document.getElementById('placeholder'); const statusEl = document.getElementById('status'); const viewerCountEl = document.getElementById('viewerCount'); const btnPower = document.getElementById('btnPower');

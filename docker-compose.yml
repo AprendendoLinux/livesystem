@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   webrtc-stream:
     build: .
@@ -9,15 +7,30 @@ services:
       - "8080:8080"
     devices:
       - "/dev/video0:/dev/video0"
+    volumes:
+      - /srv/webcam/sqlite/data:/app/data
     environment:
-      - PYTHONUNBUFFERED=1
-      - DB_HOST=db
-      - DB_USER=stream_user
-      - DB_PASS=stream_pass
-      - DB_NAME=stream_db
-    depends_on:
-      - db
+      - PYTHONUNBUFFERED=1 
+      # ==================================
+      # OPÇÃO 1: CONFIGURAÇÃO PARA MYSQL =
+      # ==================================
+      # - DB_TYPE=mysql
+      # - DB_HOST=db
+      # - DB_USER=stream_user
+      # - DB_PASS=stream_pass
+      # - DB_NAME=stream_db
+      # ==========================================
+      # OPÇÃO 2: CONFIGURAÇÃO PARA SQLITE
+      # (Para usar, comente a Opção 1 e descomente abaixo)
+      # ==========================================
+      - DB_TYPE=sqlite
+      - DB_NAME=/app/data/stream.db
+      
+    # Se for usar SQLite, você pode comentar as duas linhas abaixo e o serviço 'db' inteiro
+    # depends_on:
+    #   - db
 
+  # Serviço do MySQL (Só é necessário se DB_TYPE=mysql)
   db:
     image: mysql:latest
     container_name: stream-db
@@ -30,7 +43,4 @@ services:
     ports:
       - "3306:3306"
     volumes:
-      - db_data:/var/lib/mysql
-
-volumes:
-  db_data:
+      - /srv/webcam/nysql:/var/lib/mysql
