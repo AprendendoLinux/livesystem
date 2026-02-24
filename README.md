@@ -110,5 +110,3 @@ Ao desenvolver na branch `dev` e rodar o script de deploy, o sistema automaticam
 ---
 
 **Desenvolvido com ☕ e código aberto por [Henrique Fagundes](https://www.henrique.tec.br).**
-
-```

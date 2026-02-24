@@ -20,31 +20,46 @@
         .btn-users { background: rgba(102, 252, 241, 0.1); border-color: rgba(102, 252, 241, 0.3); color: var(--neon-blue); }
         .nav-btn:hover { filter: brightness(1.3); }
 
-        /* DASHBOARD GRID */
-        .dashboard-header { display: flex; justify-content: space-between; align-items: center; max-width: 1000px; margin: 0 auto 30px auto; flex-wrap: wrap; gap: 15px; }
+        /* DASHBOARD HEADER */
+        .dashboard-container { max-width: 1100px; margin: 0 auto; }
+        .dashboard-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; flex-wrap: wrap; gap: 15px; }
         .dashboard-header h2 { color: var(--neon-blue); margin: 0; font-size: 1.8rem; text-transform: uppercase; letter-spacing: 1.5px; }
-        .btn-add-user { background: var(--neon-blue); color: var(--bg-base); border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; text-transform: uppercase; cursor: pointer; transition: 0.3s; font-family: 'Rajdhani', sans-serif; font-size: 1rem; }
+        .btn-add-user { background: var(--neon-blue); color: var(--bg-base); border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; text-transform: uppercase; cursor: pointer; transition: 0.3s; font-family: 'Rajdhani', sans-serif; font-size: 1rem; display: flex; align-items: center; gap: 8px; }
         .btn-add-user:hover { box-shadow: 0 0 15px rgba(102, 252, 241, 0.5); }
 
-        .users-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; max-width: 1000px; margin: 0 auto; }
-        .user-card { background: var(--card-bg); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 15px; box-shadow: 0 8px 20px rgba(0,0,0,0.4); }
-        .user-header { display: flex; align-items: center; gap: 15px; }
-        .user-icon { font-size: 2.5rem; color: #555; }
-        .user-icon.admin { color: var(--neon-blue); }
-        .user-info h3 { margin: 0; font-family: 'Share Tech Mono', monospace; font-size: 1.2rem; }
-        .user-badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; text-transform: uppercase; margin-top: 5px; }
+        /* --- TABELA RESPONSIVA (DESKTOP STYLE) --- */
+        .table-responsive { width: 100%; overflow-x: auto; background: var(--card-bg); backdrop-filter: blur(12px); border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.05); box-shadow: 0 8px 20px rgba(0,0,0,0.4); }
+        .users-table { width: 100%; border-collapse: collapse; white-space: nowrap; }
+        
+        .users-table thead { background: rgba(11, 12, 16, 0.5); }
+        .users-table th { text-align: left; padding: 18px 20px; color: var(--neon-blue); text-transform: uppercase; font-size: 0.9rem; letter-spacing: 1px; border-bottom: 2px solid rgba(102, 252, 241, 0.2); }
+        
+        .users-table tbody tr { border-bottom: 1px solid rgba(255, 255, 255, 0.05); transition: background 0.2s; }
+        .users-table tbody tr:last-child { border-bottom: none; }
+        .users-table tbody tr:hover { background: rgba(102, 252, 241, 0.05); }
+        
+        .users-table td { padding: 15px 20px; vertical-align: middle; }
+        
+        /* Estilos internos das células */
+        .user-cell-flex { display: flex; align-items: center; gap: 12px; }
+        .table-user-icon { font-size: 1.8rem; color: #555; }
+        .table-user-icon.admin { color: var(--neon-blue); }
+        .user-name-text { font-family: 'Share Tech Mono', monospace; font-size: 1.1rem; font-weight: bold; }
+        
+        .user-badge { display: inline-block; padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; text-transform: uppercase; }
         .badge-admin { background: rgba(102, 252, 241, 0.1); color: var(--neon-blue); border: 1px solid rgba(102, 252, 241, 0.3); }
         .badge-user { background: rgba(138, 155, 168, 0.1); color: var(--text-muted); border: 1px solid rgba(138, 155, 168, 0.3); }
         
-        .user-actions { display: flex; gap: 10px; margin-top: auto; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.05); }
-        .btn-action { flex: 1; padding: 8px; border-radius: 6px; cursor: pointer; font-weight: 600; text-transform: uppercase; font-size: 0.8rem; border: 1px solid; background: transparent; transition: 0.2s; font-family: 'Rajdhani', sans-serif;}
+        .actions-cell { text-align: right; }
+        .table-actions { display: inline-flex; gap: 8px; }
+        .btn-table-action { padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; text-transform: uppercase; font-size: 0.75rem; border: 1px solid; background: transparent; transition: 0.2s; font-family: 'Rajdhani', sans-serif; display: flex; align-items: center; gap: 6px; }
         .btn-edit { color: var(--neon-blue); border-color: rgba(102, 252, 241, 0.3); }
         .btn-edit:hover { background: rgba(102, 252, 241, 0.1); }
         .btn-delete { color: var(--neon-red); border-color: rgba(255, 75, 75, 0.3); }
         .btn-delete:hover { background: rgba(255, 75, 75, 0.1); }
-        .btn-delete:disabled { border-color: #333; color: #555; cursor: not-allowed; background: transparent; }
+        .btn-delete:disabled { border-color: #333; color: #555; cursor: not-allowed; background: transparent; opacity: 0.5; }
 
-        /* JANELAS MODAIS */
+        /* --- JANELAS MODAIS (Mantidas iguais) --- */
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); display: none; justify-content: center; align-items: center; z-index: 2000; padding: 20px; }
         .modal-overlay.active { display: flex; }
         .modal-card { background: var(--card-bg); border: 1px solid rgba(102, 252, 241, 0.2); border-radius: 16px; padding: 30px; width: 100%; max-width: 400px; position: relative; box-shadow: 0 10px 40px rgba(0,0,0,0.8); }
@@ -73,49 +88,135 @@
         .btn-submit:hover { box-shadow: 0 0 15px rgba(102, 252, 241, 0.5); }
         .btn-confirm-delete { background: var(--neon-red); color: white; border: none; padding: 12px; width: 100%; border-radius: 6px; font-weight: bold; text-transform: uppercase; cursor: pointer; margin-top: 15px; }
         
-        .alert-box { max-width: 1000px; margin: 0 auto 20px auto; padding: 12px 20px; border-radius: 6px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+        .alert-box { max-width: 1100px; margin: 0 auto 20px auto; padding: 12px 20px; border-radius: 6px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
         .alert-error { background: rgba(255, 75, 75, 0.1); color: #ff4b4b; border: 1px solid rgba(255, 75, 75, 0.3); }
         .alert-success { background: rgba(57, 255, 20, 0.1); color: var(--neon-green); border: 1px solid rgba(57, 255, 20, 0.3); }
 
-        @media (max-width: 768px) { .top-nav { padding: 0 15px; } .logo { font-size: 1.1rem; } .nav-buttons { gap: 8px; } .nav-btn { padding: 6px 10px; font-size: 0.8rem; } .dashboard-header { flex-direction: column; text-align: center; } .btn-add-user { width: 100%; } }
+        /* CSS DO RODAPÉ FIXO */
+        .fixed-footer { position: fixed; bottom: 0; left: 0; width: 100%; height: 45px; background: rgba(11, 12, 16, 0.98); border-top: 1px solid rgba(255, 255, 255, 0.08); display: flex; justify-content: center; align-items: center; z-index: 9999; font-size: 1rem; gap: 15px; box-shadow: 0 -4px 15px rgba(0,0,0,0.5); }
+        .footer-text { color: var(--text-muted); }
+        .footer-text a { color: var(--neon-blue); text-decoration: none; font-weight: 700; }
+        .footer-separator { color: var(--text-muted); opacity: 0.5; }
+        .footer-version { color: #39ff14; background: rgba(57, 255, 20, 0.08); padding: 2px 10px; border-radius: 4px; border: 1px solid rgba(57, 255, 20, 0.2); font-family: 'Share Tech Mono', monospace; font-weight: bold; }
+
+        /* --- RESPONSIVIDADE (A MÁGICA ACONTECE AQUI) --- */
+        @media (max-width: 768px) { 
+            .top-nav { padding: 0 15px; } 
+            .logo { font-size: 1.1rem; } 
+            .nav-buttons { gap: 8px; } 
+            .nav-btn { padding: 6px 10px; font-size: 0.8rem; } 
+            .dashboard-header { flex-direction: column; text-align: center; } 
+            .btn-add-user { width: 100%; justify-content: center; }
+            
+            /* Rodapé Mobile */
+            .fixed-footer { height: auto; padding: 10px 5px; flex-direction: column; gap: 5px; } 
+            .footer-separator { display: none; }
+
+            /* --- TRANSFORMAÇÃO DA TABELA EM CARDS --- */
+            .table-responsive { border: none; background: transparent; box-shadow: none; overflow-x: visible; }
+            .users-table, .users-table thead, .users-table tbody, .users-table th, .users-table td, .users-table tr { 
+                display: block; 
+            }
+            
+            /* Esconde o cabeçalho da tabela no mobile */
+            .users-table thead { display: none; }
+            
+            /* Transforma cada linha (tr) em um card */
+            .users-table tbody tr { 
+                background: var(--card-bg);
+                border: 1px solid rgba(255, 255, 255, 0.05);
+                border-radius: 12px;
+                margin-bottom: 20px;
+                padding: 15px;
+                box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            }
+            .users-table tbody tr:hover { background: var(--card-bg); } /* Remove hover effect em mobile */
+
+            /* Estiliza as células (td) dentro do card */
+            .users-table td { 
+                padding: 10px 0;
+                border-bottom: 1px solid rgba(255,255,255,0.05);
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                text-align: right;
+            }
+            .users-table td:last-child { border-bottom: none; padding-bottom: 0; padding-top: 15px; }
+            
+            /* Adiciona o rótulo (label) antes do conteúdo usando o atributo data-label */
+            .users-table td::before {
+                content: attr(data-label);
+                float: left;
+                font-weight: 700;
+                text-transform: uppercase;
+                color: var(--neon-blue);
+                font-size: 0.85rem;
+                margin-right: auto; /* Empurra o label para a esquerda */
+            }
+            
+            /* Ajustes específicos para os elementos internos no mobile */
+            .user-cell-flex { flex-direction: row-reverse; } /* Ícone depois do nome no mobile fica melhor */
+            .actions-cell { justify-content: flex-end; } /* Garante que os botões fiquem à direita */
+            .table-actions { width: 100%; display: flex; gap: 10px; }
+            .btn-table-action { flex: 1; justify-content: center; padding: 10px; }
+        }
     </style>
 </head>
 <body>
     
     {% include 'header.html' %}
 
-    {% if error %}<div class="alert-box alert-error"><i class="fas fa-exclamation-triangle"></i> {{ error }}</div>{% endif %}
-    {% if msg %}<div class="alert-box alert-success"><i class="fas fa-check-circle"></i> {{ msg }}</div>{% endif %}
+    <div class="dashboard-container">
+        {% if error %}<div class="alert-box alert-error"><i class="fas fa-exclamation-triangle"></i> {{ error }}</div>{% endif %}
+        {% if msg %}<div class="alert-box alert-success"><i class="fas fa-check-circle"></i> {{ msg }}</div>{% endif %}
 
-    <div class="dashboard-header">
-        <h2><i class="fas fa-users-cog"></i> Controle de Acessos</h2>
-        <button class="btn-add-user" onclick="openModal('modal-add')"><i class="fas fa-user-plus"></i> Novo Usuário</button>
-    </div>
-
-    <div class="users-grid">
-        {% for u in users %}
-        <div class="user-card">
-            <div class="user-header">
-                <i class="fas fa-user-circle user-icon {% if u.is_admin %}admin{% endif %}"></i>
-                <div class="user-info">
-                    <h3>{{ u.username }}</h3>
-                    {% if u.is_admin %}
-                        <span class="user-badge badge-admin"><i class="fas fa-shield-alt"></i> Administrador</span>
-                    {% else %}
-                        <span class="user-badge badge-user"><i class="fas fa-user"></i> Usuário Padrão</span>
-                    {% endif %}
-                </div>
-            </div>
-            <div class="user-actions">
-                <button class="btn-action btn-edit" onclick="openEditModal('{{ u.username }}', {{ 'true' if u.is_admin else 'false' }})"><i class="fas fa-pen"></i> Editar</button>
-                
-                <button class="btn-action btn-delete" 
-                    {% if u.username == current_user %} disabled title="Você não pode excluir a si mesmo" {% else %} onclick="openDeleteModal('{{ u.username }}')" {% endif %}>
-                    <i class="fas fa-trash"></i> Excluir
-                </button>
-            </div>
+        <div class="dashboard-header">
+            <h2><i class="fas fa-users-cog"></i> Controle de Acessos</h2>
+            <button class="btn-add-user" onclick="openModal('modal-add')"><i class="fas fa-user-plus"></i> Novo Usuário</button>
         </div>
-        {% endfor %}
+
+        <div class="table-responsive">
+            <table class="users-table">
+                <thead>
+                    <tr>
+                        <th>Usuário</th>
+                        <th>Permissão / Status</th>
+                        <th class="actions-cell">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in users %}
+                    <tr>
+                        <td data-label="Usuário">
+                            <div class="user-cell-flex">
+                                <i class="fas fa-user-circle table-user-icon {% if u.is_admin %}admin{% endif %}"></i>
+                                <span class="user-name-text">{{ u.username }}</span>
+                            </div>
+                        </td>
+                        <td data-label="Permissão">
+                            {% if u.is_admin %}
+                                <span class="user-badge badge-admin"><i class="fas fa-shield-alt"></i> Administrador</span>
+                            {% else %}
+                                <span class="user-badge badge-user"><i class="fas fa-user"></i> Padrão</span>
+                            {% endif %}
+                        </td>
+                        <td class="actions-cell" data-label="Ações">
+                            <div class="table-actions">
+                                <button class="btn-table-action btn-edit" onclick="openEditModal('{{ u.username }}', {{ 'true' if u.is_admin else 'false' }})">
+                                    <i class="fas fa-pen"></i> <span>Editar</span>
+                                </button>
+                                
+                                <button class="btn-table-action btn-delete" 
+                                    {% if u.username == current_user %} disabled title="Você não pode excluir a si mesmo" {% else %} onclick="openDeleteModal('{{ u.username }}')" {% endif %}>
+                                    <i class="fas fa-trash"></i> <span>Excluir</span>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
 
     <div class="modal-overlay" id="modal-add">
@@ -203,7 +304,6 @@
     {% include 'footer.html' %}
 
     <script>
-        // Função universal para os olhinhos de senha
         function toggleVisibility(inputId, iconId) {
             const input = document.getElementById(inputId);
             const icon = document.getElementById(iconId);
@@ -218,21 +318,17 @@
             }
         }
 
-        // Controle das Janelas Modais
         function openModal(modalId) { document.getElementById(modalId).classList.add('active'); }
         function closeModal(modalId) { document.getElementById(modalId).classList.remove('active'); }
         
-        // Abre o Modal de Edição já preenchendo os dados do card
         function openEditModal(username, isAdmin) {
             document.getElementById('edit_username').value = username;
             document.getElementById('edit_is_admin').checked = isAdmin;
-            // Limpa os campos de senha sempre que abrir
             document.getElementById('edit_pwd').value = '';
             document.getElementById('edit_pwd2').value = '';
             openModal('modal-edit');
         }
 
-        // Abre o Modal de Exclusão preenchendo o nome
         function openDeleteModal(username) {
             document.getElementById('delete_username').value = username;
             document.getElementById('delete_username_display').innerText = username;
