@@ -3,42 +3,132 @@ import asyncio
 import json
 import logging
 import cv2
+import aiomysql
+import bcrypt
+import aiohttp_jinja2
+import jinja2
 from aiohttp import web, WSMsgType
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 ROOT = os.path.dirname(__file__)
+VERSION = os.environ.get('APP_VERSION', 'dev-local')
 
 connected_clients = set()
 camera_task = None
 cap = None
+db_pool = None
 
+async def init_db(app):
+    global db_pool
+    # Aumentamos o loop para 20 tentativas de 5 segundos (100 segundos de tolerância)
+    for i in range(20):
+        try:
+            db_pool = await aiomysql.create_pool(
+                host=os.environ.get('DB_HOST', 'db'),
+                port=3306,
+                user=os.environ.get('DB_USER', 'stream_user'),
+                password=os.environ.get('DB_PASS', 'stream_pass'),
+                db=os.environ.get('DB_NAME', 'stream_db'),
+                autocommit=True
+            )
+            logger.info("Conectado ao MySQL com sucesso!")
+            break
+        except Exception as e:
+            logger.warning(f"Aguardando o MySQL inicializar os volumes (Tentativa {i+1}/20)... Detalhe: {e}")
+            await asyncio.sleep(5)
+    
+    if not db_pool:
+        logger.error("Falha crítica: Tempo esgotado ao tentar conectar no banco de dados.")
+        return
+
+    # Criação da tabela e usuário padrão (admin / admin123)
+    async with db_pool.acquire() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute("""
+                CREATE TABLE IF NOT EXISTS users (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    username VARCHAR(50) UNIQUE NOT NULL,
+                    password_hash VARCHAR(255) NOT NULL
+                )
+            """)
+            await cur.execute("SELECT * FROM users WHERE username='admin'")
+            if not await cur.fetchone():
+                hashed = bcrypt.hashpw(b"admin123", bcrypt.gensalt()).decode('utf-8')
+                await cur.execute("INSERT INTO users (username, password_hash) VALUES (%s, %s)", ('admin', hashed))
+                logger.info("Usuário padrão criado: admin / admin123")
+
+# --- MIDDLEWARE DE AUTENTICAÇÃO ---
+@web.middleware
+async def auth_middleware(request, handler):
+    # Rotas públicas
+    if request.path in ['/login', '/static']:
+        return await handler(request)
+    
+    # Verifica cookie
+    auth_cookie = request.cookies.get('stream_auth')
+    if not auth_cookie or auth_cookie != 'authenticated_session':
+        if request.path == '/ws':
+            return web.Response(status=401)
+        raise web.HTTPFound('/login')
+        
+    return await handler(request)
+
+# --- ROTAS ---
+@aiohttp_jinja2.template('login.html')
+async def login_get(request):
+    return {'version': VERSION, 'error': None}
+
+@aiohttp_jinja2.template('login.html')
+async def login_post(request):
+    data = await request.post()
+    username = data.get('username')
+    password = data.get('password')
+
+    # Trava de segurança caso o banco não esteja pronto
+    if not db_pool:
+        return {'version': VERSION, 'error': 'Sistema inicializando. O banco de dados ainda não está pronto. Tente novamente em alguns segundos.'}
+
+    try:
+        async with db_pool.acquire() as conn:
+            async with conn.cursor(aiomysql.DictCursor) as cur:
+                await cur.execute("SELECT password_hash FROM users WHERE username=%s", (username,))
+                user = await cur.fetchone()
+
+        if user and bcrypt.checkpw(password.encode('utf-8'), user['password_hash'].encode('utf-8')):
+            response = web.HTTPFound('/')
+            response.set_cookie('stream_auth', 'authenticated_session', max_age=86400) # 24 horas
+            return response
+        
+        return {'version': VERSION, 'error': 'Usuário ou senha incorretos!'}
+    except Exception as e:
+        logger.error(f"Erro durante o login: {e}")
+        return {'version': VERSION, 'error': 'Erro interno ao consultar credenciais.'}
+
+async def logout(request):
+    response = web.HTTPFound('/login')
+    response.del_cookie('stream_auth')
+    return response
+
+@aiohttp_jinja2.template('index.html')
 async def index(request):
-    content = open(os.path.join(ROOT, "index.html"), "r", encoding="utf-8").read()
-    return web.Response(content_type="text/html", text=content)
+    return {'version': VERSION}
 
+# (Mantenha as funções notify_viewers, broadcast_camera e websocket_handler idênticas ao código anterior)
 async def notify_viewers():
     count = len(connected_clients)
     message = json.dumps({"type": "viewers", "count": count})
-    # Usa list() para criar uma cópia estática e evitar erro de concorrência
     for ws in list(connected_clients):
-        try:
-            await ws.send_str(message)
-        except Exception:
-            pass
+        try: await ws.send_str(message)
+        except Exception: pass
 
 async def broadcast_camera():
     global cap, connected_clients
     logger.info("Iniciando captura física em /dev/video0...")
-    
     cap = cv2.VideoCapture(0)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-
-    if not cap.isOpened():
-        logger.error("Falha ao acessar o hardware de vídeo.")
-        return
 
     try:
         while connected_clients:
@@ -52,28 +142,17 @@ async def broadcast_camera():
             
             if ret:
                 data = buffer.tobytes()
-                
-                # 1. Congela a lista de clientes atual para este frame
                 current_clients = list(connected_clients)
-                
                 if current_clients:
-                    # 2. Cria as tarefas de envio para todos simultaneamente
                     tasks = [ws.send_bytes(data) for ws in current_clients]
-                    
-                    # 3. Executa todas as tarefas em paralelo sem travar o loop
                     results = await asyncio.gather(*tasks, return_exceptions=True)
-                    
-                    # 4. Verifica se alguém fechou o navegador durante o envio
                     disconnected = False
                     for ws, result in zip(current_clients, results):
                         if isinstance(result, Exception):
                             connected_clients.discard(ws)
                             disconnected = True
-                    
                     if disconnected:
                         await notify_viewers()
-
-            # Mantém ~30 fps
             await asyncio.sleep(0.033)
     finally:
         logger.info("Encerrando transmissão e liberando o hardware.")
@@ -84,9 +163,7 @@ async def websocket_handler(request):
     global camera_task, connected_clients
     ws = web.WebSocketResponse()
     await ws.prepare(request)
-
     connected_clients.add(ws)
-    logger.info(f"Novo acesso. Espectadores: {len(connected_clients)}")
     await notify_viewers()
 
     if len(connected_clients) == 1:
@@ -96,23 +173,24 @@ async def websocket_handler(request):
         async for msg in ws:
             if msg.type == WSMsgType.TEXT and msg.data == 'stop':
                 await ws.close()
-            elif msg.type == WSMsgType.ERROR:
-                logger.error('Conexão WebSocket fechada com erro.')
     finally:
         connected_clients.discard(ws)
-        logger.info(f"Acesso encerrado. Espectadores: {len(connected_clients)}")
-        
         await notify_viewers()
-        
         if len(connected_clients) == 0 and camera_task:
             await camera_task
-
     return ws
 
-app = web.Application()
+app = web.Application(middlewares=[auth_middleware])
+aiohttp_jinja2.setup(app, loader=jinja2.FileSystemLoader(os.path.join(ROOT, 'templates')))
+
+app.on_startup.append(init_db)
+
 app.router.add_get("/", index)
+app.router.add_get("/login", login_get)
+app.router.add_post("/login", login_post)
+app.router.add_get("/logout", logout)
 app.router.add_get("/ws", websocket_handler)
 
 if __name__ == "__main__":
-    logger.info("Sistema de Stream Iniciado na porta 8080...")
+    logger.info("Sistema Iniciado na porta 8080...")
     web.run_app(app, host="0.0.0.0", port=8080, access_log=logger)

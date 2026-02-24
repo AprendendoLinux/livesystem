@@ -1,2 +1,7 @@
 aiohttp
 opencv-python-headless
+aiomysql
+bcrypt
+jinja2
+aiohttp-jinja2
+cryptography
