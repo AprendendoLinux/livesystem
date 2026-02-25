@@ -154,11 +154,12 @@
                 margin-right: auto; /* Empurra o label para a esquerda */
             }
             
+
             /* Ajustes específicos para os elementos internos no mobile */
-            .user-cell-flex { flex-direction: row-reverse; } /* Ícone depois do nome no mobile fica melhor */
-            .actions-cell { justify-content: flex-end; } /* Garante que os botões fiquem à direita */
+            .user-cell-flex { flex-direction: row-reverse; } 
+            .actions-cell { flex-wrap: wrap; gap: 12px; } 
             .table-actions { width: 100%; display: flex; gap: 10px; }
-            .btn-table-action { flex: 1; justify-content: center; padding: 10px; }
+            .btn-table-action { flex: 1; justify-content: center; padding: 12px; font-size: 0.85rem; }
         }
     </style>
 </head>
@@ -202,7 +203,7 @@
                         </td>
                         <td class="actions-cell" data-label="Ações">
                             <div class="table-actions">
-                                <button class="btn-table-action btn-edit" onclick="openEditModal('{{ u.username }}', {{ 'true' if u.is_admin else 'false' }})">
+                                <button class="btn-table-action btn-edit" onclick="openEditModal('{{ u.username }}', {{ 'true' if u.is_admin else 'false' }}, {{ 'true' if u.username == current_user else 'false' }})">
                                     <i class="fas fa-pen"></i> <span>Editar</span>
                                 </button>
                                 
@@ -223,7 +224,7 @@
         <div class="modal-card">
             <i class="fas fa-times close-btn" onclick="closeModal('modal-add')"></i>
             <h3 class="modal-title">Cadastrar Usuário</h3>
-            <form action="/users" method="POST">
+            <form action="/users" method="POST" id="form-add-user">
                 <input type="hidden" name="action" value="add">
                 <div class="input-group">
                     <label>Nome de Usuário</label>
@@ -232,9 +233,10 @@
                 <div class="input-group">
                     <label>Senha</label>
                     <div class="password-wrapper">
-                        <input type="password" name="password" id="add_pwd" required>
+                        <input type="password" name="password" id="add_pwd" required minlength="8" pattern="(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[^a-zA-Z0-9]).{8,}" title="Deve conter pelo menos 8 caracteres, uma letra maiúscula, uma minúscula, um número e um símbolo.">
                         <i class="fas fa-eye toggle-password" id="add_eye" onclick="toggleVisibility('add_pwd', 'add_eye')"></i>
                     </div>
+                    <span class="help-text">Mínimo de 8 caracteres, com maiúscula, minúscula, número e símbolo.</span>
                 </div>
                 <div class="input-group">
                     <label>Confirmar Senha</label>
@@ -256,7 +258,7 @@
         <div class="modal-card">
             <i class="fas fa-times close-btn" onclick="closeModal('modal-edit')"></i>
             <h3 class="modal-title">Editar Permissões</h3>
-            <form action="/users" method="POST">
+            <form action="/users" method="POST" id="form-edit-user">
                 <input type="hidden" name="action" value="edit">
                 <div class="input-group">
                     <label>Usuário selecionado</label>
@@ -265,10 +267,10 @@
                 <div class="input-group">
                     <label>Nova Senha</label>
                     <div class="password-wrapper">
-                        <input type="password" name="password" id="edit_pwd">
+                        <input type="password" name="password" id="edit_pwd" minlength="8" pattern="(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[^a-zA-Z0-9]).{8,}" title="Deve conter pelo menos 8 caracteres, uma letra maiúscula, uma minúscula, um número e um símbolo.">
                         <i class="fas fa-eye toggle-password" id="edit_eye" onclick="toggleVisibility('edit_pwd', 'edit_eye')"></i>
                     </div>
-                    <span class="help-text">Deixe em branco para manter a senha atual.</span>
+                    <span class="help-text">Mínimo 8 caracteres (maiúscula, minúscula, número, símbolo). Deixe em branco para manter a atual.</span>
                 </div>
                 <div class="input-group">
                     <label>Confirmar Nova Senha</label>
@@ -279,7 +281,7 @@
                 </div>
                 <div class="checkbox-group">
                     <input type="checkbox" id="edit_is_admin" name="is_admin">
-                    <label for="edit_is_admin">Privilégios de Administrador</label>
+                    <label for="edit_is_admin" id="lbl_edit_is_admin">Privilégios de Administrador</label>
                 </div>
                 <button type="submit" class="btn-submit">Atualizar Cadastro</button>
             </form>
@@ -301,9 +303,20 @@
         </div>
     </div>
 
+    <div class="modal-overlay" id="modal-alert">
+        <div class="modal-card danger">
+            <i class="fas fa-times close-btn" onclick="closeModal('modal-alert')"></i>
+            <i class="fas fa-exclamation-triangle" style="font-size: 3rem; color: #ff4b4b; margin-bottom: 15px;"></i>
+            <h3 style="margin-top:0; color: #ff4b4b;">Atenção</h3>
+            <p id="alert-message" style="color: var(--text-muted); font-size: 1.1rem;"></p>
+            <button class="btn-confirm-delete" onclick="closeModal('modal-alert')" type="button">Entendi</button>
+        </div>
+    </div>
+
     {% include 'footer.html' %}
 
-    <script>
+<script>
+        // Função universal para os olhinhos de senha
         function toggleVisibility(inputId, iconId) {
             const input = document.getElementById(inputId);
             const icon = document.getElementById(iconId);
@@ -318,22 +331,66 @@
             }
         }
 
+        // Controle das Janelas Modais
         function openModal(modalId) { document.getElementById(modalId).classList.add('active'); }
         function closeModal(modalId) { document.getElementById(modalId).classList.remove('active'); }
         
-        function openEditModal(username, isAdmin) {
+        function openEditModal(username, isAdmin, isSelf) {
             document.getElementById('edit_username').value = username;
-            document.getElementById('edit_is_admin').checked = isAdmin;
+            
+            const chkAdmin = document.getElementById('edit_is_admin');
+            const lblAdmin = document.getElementById('lbl_edit_is_admin');
+            
+            chkAdmin.checked = isAdmin;
+            
+            // Desabilita o checkbox visualmente se for o próprio usuário
+            if (isSelf) {
+                chkAdmin.disabled = true;
+                lblAdmin.innerText = "Privilégios de Administrador (Bloqueado para você)";
+                lblAdmin.style.opacity = "0.5";
+            } else {
+                chkAdmin.disabled = false;
+                lblAdmin.innerText = "Privilégios de Administrador";
+                lblAdmin.style.opacity = "1";
+            }
+            
             document.getElementById('edit_pwd').value = '';
             document.getElementById('edit_pwd2').value = '';
             openModal('modal-edit');
         }
 
+        // Abre o Modal de Exclusão preenchendo o nome
         function openDeleteModal(username) {
             document.getElementById('delete_username').value = username;
             document.getElementById('delete_username_display').innerText = username;
             openModal('modal-delete');
         }
+
+        // Função para chamar o modal de erro personalizado
+        function showAlert(message) {
+            document.getElementById('alert-message').innerText = message;
+            openModal('modal-alert');
+        }
+
+        // Validação de senhas iguais no frontend (Modal Adicionar) - Versão Única e Correta
+        document.getElementById('form-add-user').addEventListener('submit', function(e) {
+            const pwd1 = document.getElementById('add_pwd').value;
+            const pwd2 = document.getElementById('add_pwd2').value;
+            if (pwd1 !== pwd2) {
+                e.preventDefault(); // Impede o envio do form
+                showAlert('As senhas digitadas não conferem!');
+            }
+        });
+
+        // Validação de senhas iguais no frontend (Modal Editar) - Versão Única e Correta
+        document.getElementById('form-edit-user').addEventListener('submit', function(e) {
+            const pwd1 = document.getElementById('edit_pwd').value;
+            const pwd2 = document.getElementById('edit_pwd2').value;
+            if (pwd1 !== '' && pwd1 !== pwd2) {
+                e.preventDefault();
+                showAlert('As novas senhas digitadas não conferem!');
+            }
+        });
     </script>
 </body>
 </html>

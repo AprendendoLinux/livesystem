@@ -9,6 +9,7 @@ import bcrypt
 import aiohttp_jinja2
 import jinja2
 import uuid
+import re # Importado para validação de senha
 from aiohttp import web, WSMsgType
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -23,6 +24,15 @@ camera_task = None
 cap = None
 db_pool = None 
 active_sessions = {}
+
+# --- FUNÇÃO DE VALIDAÇÃO DE SENHA FORTE ---
+def is_strong_password(password):
+    if len(password) < 8: return False
+    if not re.search(r'[A-Z]', password): return False # Pelo menos uma maiúscula
+    if not re.search(r'[a-z]', password): return False # Pelo menos uma minúscula
+    if not re.search(r'\d', password): return False    # Pelo menos um número
+    if not re.search(r'[!@#$%^&*(),.?":{}|<>\-=_+\[\]\\/`~]', password): return False # Pelo menos um símbolo
+    return True
 
 # --- BANCO DE DADOS: INICIALIZAÇÃO E MIGRAÇÃO ---
 async def init_db(app):
@@ -54,12 +64,15 @@ async def init_db(app):
                 try: await cur.execute("ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT FALSE")
                 except: pass
 
-                await cur.execute("SELECT * FROM users WHERE username='admin'")
-                if not await cur.fetchone():
+                # Verifica se o banco está VAZIO antes de criar o admin padrão
+                await cur.execute("SELECT COUNT(*) FROM users")
+                result = await cur.fetchone()
+                count = result[0] if result else 0
+                
+                if count == 0:
                     hashed = bcrypt.hashpw(b"admin123", bcrypt.gensalt()).decode('utf-8')
                     await cur.execute("INSERT INTO users (username, password_hash, is_admin) VALUES (%s, %s, TRUE)", ('admin', hashed))
-                else:
-                    await cur.execute("UPDATE users SET is_admin=TRUE WHERE username='admin'")
+                    logger.info("Banco vazio: Usuário 'admin' padrão criado.")
                     
     elif DB_TYPE == 'sqlite':
         db_path = os.environ.get('DB_NAME', os.path.join(ROOT, 'data/stream.db'))
@@ -76,14 +89,14 @@ async def init_db(app):
         except: pass
         await db_pool.commit()
         
-        async with db_pool.execute("SELECT * FROM users WHERE username='admin'") as cursor:
-            if not await cursor.fetchone():
+        # Verifica se o banco está VAZIO antes de criar o admin padrão
+        async with db_pool.execute("SELECT COUNT(*) FROM users") as cursor:
+            row = await cursor.fetchone()
+            if row and row[0] == 0:
                 hashed = bcrypt.hashpw(b"admin123", bcrypt.gensalt()).decode('utf-8')
                 await db_pool.execute("INSERT INTO users (username, password_hash, is_admin) VALUES (?, ?, 1)", ('admin', hashed))
                 await db_pool.commit()
-            else:
-                await db_pool.execute("UPDATE users SET is_admin=1 WHERE username='admin'")
-                await db_pool.commit()
+                logger.info("Banco vazio: Usuário 'admin' padrão criado.")
 
 # --- CONSULTAS DE USUÁRIOS ---
 async def get_user_data(username):
@@ -149,7 +162,7 @@ async def logout(request):
 @aiohttp_jinja2.template('index.html')
 async def index(request): return {'version': VERSION, 'is_admin': request['user']['is_admin']}
 
-# --- DASHBOARD DE GESTÃO DE USUÁRIOS (O Coração do Painel) ---
+# --- DASHBOARD DE GESTÃO DE USUÁRIOS ---
 @aiohttp_jinja2.template('users.html')
 async def users_get(request):
     user = request['user']
@@ -170,8 +183,11 @@ async def users_post(request):
         if action == 'add':
             new_user = data.get('username')
             pwd = data.get('password')
+            
             if pwd != data.get('confirm_password'):
                 ctx['error'] = 'As senhas não conferem!'
+            elif not is_strong_password(pwd):
+                ctx['error'] = 'A senha deve ter no mínimo 8 caracteres, com pelo menos uma letra maiúscula, uma minúscula, um número e um símbolo especial.'
             else:
                 is_admin = 1 if data.get('is_admin') == 'on' else 0
                 hashed = bcrypt.hashpw(pwd.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
@@ -186,12 +202,19 @@ async def users_post(request):
 
         elif action == 'edit':
             target_user = data.get('username')
-            is_admin = 1 if data.get('is_admin') == 'on' else 0
             pwd = data.get('password')
+            
+            # --- PROTEÇÃO CONTRA AUTO-REVOGAÇÃO ---
+            if target_user == user['username']:
+                is_admin = 1 # Garante que o usuário logado nunca perca o próprio admin
+            else:
+                is_admin = 1 if data.get('is_admin') == 'on' else 0
             
             if pwd: # Se digitou algo na senha, altera a senha e o privilégio
                 if pwd != data.get('confirm_password'):
                     ctx['error'] = 'As novas senhas não conferem!'
+                elif not is_strong_password(pwd):
+                    ctx['error'] = 'A nova senha deve ter no mínimo 8 caracteres, com pelo menos uma letra maiúscula, uma minúscula, um número e um símbolo especial.'
                 else:
                     hashed = bcrypt.hashpw(pwd.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
                     if DB_TYPE == 'mysql':

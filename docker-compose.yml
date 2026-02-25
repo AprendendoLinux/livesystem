@@ -25,31 +25,21 @@ services:
       # ==========================================
       - DB_TYPE=sqlite
       - DB_NAME=/app/data/stream.db
-      
     # Se for usar SQLite, você pode comentar as duas linhas abaixo e o serviço 'db' inteiro
     # depends_on:
     #   - db
 
   # Serviço do MySQL (Só é necessário se DB_TYPE=mysql)
-  db:
-    image: mysql:latest
-    container_name: stream-db
-    restart: unless-stopped
-    environment:
-      MYSQL_ROOT_PASSWORD: root_pass
-      MYSQL_DATABASE: stream_db
-      MYSQL_USER: stream_user
-      MYSQL_PASSWORD: stream_pass
-    ports:
-      - "3306:3306"
-    volumes:
-      - /srv/webcam/nysql:/var/lib/mysql
-  
-  adminer:
-    image: adminer:4.8.1
-    restart: unless-stopped
-    container_name: adminer
-    ports:
-      - "8081:8080"
-    volumes:
-      - /srv/webcam/sqlite:/data
+  # db:
+  #   image: mysql:latest
+  #   container_name: stream-db
+  #   restart: unless-stopped
+  #   environment:
+  #     MYSQL_ROOT_PASSWORD: root_pass
+  #     MYSQL_DATABASE: stream_db
+  #     MYSQL_USER: stream_user
+  #     MYSQL_PASSWORD: stream_pass
+  #   ports:
+  #     - "3306:3306"
+  #   volumes:
+  #     - /srv/webcam/nysql:/var/lib/mysql
