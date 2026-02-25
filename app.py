@@ -270,6 +270,27 @@ async def notify_viewers():
 async def broadcast_camera():
     global cap, connected_clients
     cap = cv2.VideoCapture(0)
+    
+    # Aguarda um breve instante para o hardware responder
+    await asyncio.sleep(0.5) 
+
+    if not cap or not cap.isOpened():
+        logger.error("Falha física: hardware ocupado ou não encontrado.")
+        error_msg = json.dumps({"type": "error", "message": "Câmera ocupada (ex: Google Meet) ou não encontrada!"})
+        
+        for ws in list(connected_clients):
+            try:
+                await ws.send_str(error_msg)
+            except:
+                pass
+        
+        if cap: cap.release()
+        cap = None
+        # Pequeno delay para o pacote chegar antes do socket fechar
+        await asyncio.sleep(0.5)
+        return
+    # ... resto da função permanece igual
+
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
     try:
@@ -293,8 +314,9 @@ async def broadcast_camera():
                     if disconnected: await notify_viewers()
             await asyncio.sleep(0.033)
     finally:
-        cap.release()
-        cap = None
+        if cap:
+            cap.release()
+            cap = None
 
 async def websocket_handler(request):
     global camera_task, connected_clients
@@ -302,14 +324,30 @@ async def websocket_handler(request):
     await ws.prepare(request)
     connected_clients.add(ws)
     await notify_viewers()
-    if len(connected_clients) == 1: camera_task = asyncio.create_task(broadcast_camera())
+    
+    # Inicia a tarefa se for o primeiro, mas verifica se a anterior realmente morreu
+    if len(connected_clients) == 1:
+        if camera_task and not camera_task.done():
+            camera_task.cancel()
+        camera_task = asyncio.create_task(broadcast_camera())
+    
     try:
         async for msg in ws:
-            if msg.type == WSMsgType.TEXT and msg.data == 'stop': await ws.close()
+            if msg.type == WSMsgType.TEXT and msg.data == 'stop':
+                break
     finally:
         connected_clients.discard(ws)
         await notify_viewers()
-        if len(connected_clients) == 0 and camera_task: await camera_task
+        
+        # Se a lista esvaziar, mata a tarefa da câmera obrigatoriamente
+        if len(connected_clients) == 0 and camera_task:
+            camera_task.cancel()
+            try:
+                await camera_task
+            except (asyncio.CancelledError, Exception):
+                pass
+            camera_task = None # Limpa a referência para a próxima tentativa
+            
     return ws
 
 app = web.Application(middlewares=[auth_middleware])

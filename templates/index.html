@@ -80,34 +80,166 @@
     {% include 'footer.html' %}
 
     <script>
-        const video = document.getElementById('video'); const placeholder = document.getElementById('placeholder'); const statusEl = document.getElementById('status'); const viewerCountEl = document.getElementById('viewerCount'); const btnPower = document.getElementById('btnPower');
-        let ws = null; let isStreaming = false; let currentZoom = 1; let currentObjectURL = null;
+        const video = document.getElementById('video'); 
+        const placeholder = document.getElementById('placeholder'); 
+        const statusEl = document.getElementById('status'); 
+        const viewerCountEl = document.getElementById('viewerCount'); 
+        const btnPower = document.getElementById('btnPower');
+        
+        let ws = null; 
+        let isStreaming = false; 
+        let currentZoom = 1; 
+        let currentObjectURL = null;
+        let hasError = false; 
 
         function startStream() {
-            statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Conectando...';
+            // Limpeza total de segurança antes de qualquer nova tentativa
+            if (ws) { 
+                ws.onclose = null; 
+                ws.onerror = null; 
+                ws.close(); 
+                ws = null; 
+            }
+            
+            hasError = false;
+            isStreaming = false; 
+
+            statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Acedendo ao hardware...';
+            statusEl.style.color = '';
+            
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
             ws.binaryType = 'blob';
 
-            ws.onopen = () => { video.style.display = 'block'; placeholder.classList.add('hidden'); statusEl.innerHTML = '● LIVE'; statusEl.classList.add('online'); };
+            ws.onopen = () => { 
+                isStreaming = true; 
+                video.style.display = 'block'; 
+                placeholder.classList.add('hidden'); 
+                statusEl.innerHTML = '● LIVE'; 
+                statusEl.classList.add('online'); 
+                btnPower.innerHTML = '<i class="fas fa-stop"></i> Desligar Câmara';
+                btnPower.classList.replace('active-blue', 'active-red');
+            };
+
             ws.onmessage = (event) => {
                 if (typeof event.data === 'string') {
-                    try { const data = JSON.parse(event.data); if (data.type === 'viewers') { viewerCountEl.innerHTML = `<i class="fas fa-eye"></i> ${data.count}`; viewerCountEl.style.display = data.count > 0 ? 'block' : 'none'; } } catch (e) {} return;
+                    try { 
+                        const data = JSON.parse(event.data); 
+                        if (data.type === 'viewers') { 
+                            viewerCountEl.innerHTML = `<i class="fas fa-eye"></i> ${data.count}`; 
+                            viewerCountEl.style.display = data.count > 0 ? 'block' : 'none'; 
+                        } 
+                        if (data.type === 'error') {
+                            hasError = true;
+                            // Exibe o erro e força o reset da interface para permitir nova tentativa
+                            statusEl.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${data.message}`;
+                            statusEl.style.color = 'var(--neon-red)';
+                            statusEl.classList.remove('online');
+                            forceResetUI();
+                        }
+                    } catch (e) { console.error("Erro no processamento:", e); } 
+                    return;
                 }
+                
+                // Renderização dos frames de vídeo
                 if (currentObjectURL) URL.revokeObjectURL(currentObjectURL);
-                currentObjectURL = URL.createObjectURL(event.data); video.src = currentObjectURL;
+                currentObjectURL = URL.createObjectURL(event.data); 
+                video.src = currentObjectURL;
             };
-            ws.onclose = () => stopStreamVisuals();
+
+            ws.onclose = () => {
+                isStreaming = false;
+                ws = null;
+                // Só limpa o status para "Offline" se não houver um erro crítico no ecrã
+                if (!hasError) {
+                    stopStreamVisuals();
+                }
+            };
+
+            ws.onerror = () => {
+                hasError = true;
+                statusEl.innerHTML = '<i class="fas fa-times-circle"></i> Erro de ligação ao servidor';
+                forceResetUI();
+            };
         }
 
-        function stopStream() { if (ws) { ws.send('stop'); ws.close(); } stopStreamVisuals(); }
-        function stopStreamVisuals() { if (currentObjectURL) { URL.revokeObjectURL(currentObjectURL); currentObjectURL = null; } video.src = ''; video.style.display = 'none'; placeholder.classList.remove('hidden'); statusEl.innerText = 'Offline'; statusEl.classList.remove('online'); viewerCountEl.style.display = 'none'; btnPower.innerHTML = '<i class="fas fa-power-off"></i> Ligar Sistema'; btnPower.classList.replace('active-red', 'active-blue'); isStreaming = false; }
-        function toggleStream() { if (isStreaming) { stopStream(); } else { startStream(); btnPower.innerHTML = '<i class="fas fa-stop"></i> Desligar Câmera'; btnPower.classList.replace('active-blue', 'active-red'); isStreaming = true; } }
-        function updateBtnState(btnId, isActive) { const btn = document.getElementById(btnId); isActive ? btn.classList.add('active-blue') : btn.classList.remove('active-blue'); }
-        function zoomIn() { currentZoom += 0.2; video.style.transform = `scale(${currentZoom})`; updateBtnState('btnZoomIn', true); setTimeout(() => updateBtnState('btnZoomIn', false), 200); }
-        function zoomOut() { if (currentZoom > 0.4) { currentZoom -= 0.2; video.style.transform = `scale(${currentZoom})`; updateBtnState('btnZoomOut', true); setTimeout(() => updateBtnState('btnZoomOut', false), 200); } }
-        function resetZoom() { currentZoom = 1; video.style.transform = `scale(${currentZoom})`; updateBtnState('btnResetZoom', true); setTimeout(() => updateBtnState('btnResetZoom', false), 200); }
-        function toggleFullScreen() { const container = document.getElementById('videoContainer'); if (!document.fullscreenElement) { container.requestFullscreen().catch(err => console.log(err)); updateBtnState('btnFullscreen', true); } else { document.exitFullscreen(); updateBtnState('btnFullscreen', false); } }
+        // Função crucial: reseta botões e variáveis, mas mantém a mensagem de erro visível
+        function forceResetUI() {
+            if (currentObjectURL) { URL.revokeObjectURL(currentObjectURL); currentObjectURL = null; } 
+            video.src = ''; 
+            video.style.display = 'none'; 
+            placeholder.classList.remove('hidden'); 
+            btnPower.innerHTML = '<i class="fas fa-power-off"></i> Ligar Câmara'; 
+            btnPower.classList.replace('active-red', 'active-blue');
+            isStreaming = false;
+        }
+
+        function stopStream() { 
+            hasError = false;
+            if (ws) { 
+                try { ws.send('stop'); } catch(e){} 
+                ws.close(); 
+            } 
+            stopStreamVisuals(); 
+        }
+
+        function stopStreamVisuals() { 
+            forceResetUI();
+            if (!hasError) {
+                statusEl.innerText = 'Offline'; 
+                statusEl.style.color = '';
+                statusEl.classList.remove('online');
+            }
+            viewerCountEl.style.display = 'none'; 
+        }
+
+        function toggleStream() { 
+            if (isStreaming) { 
+                stopStream(); 
+            } else { 
+                startStream(); 
+            } 
+        }
+
+        // Funções de Zoom e Fullscreen
+        function updateBtnState(btnId, isActive) { 
+            const btn = document.getElementById(btnId); 
+            isActive ? btn.classList.add('active-blue') : btn.classList.remove('active-blue'); 
+        }
+
+        function zoomIn() { 
+            currentZoom += 0.2; 
+            video.style.transform = `scale(${currentZoom})`; 
+            updateBtnState('btnZoomIn', true); 
+            setTimeout(() => updateBtnState('btnZoomIn', false), 200); 
+        }
+
+        function zoomOut() { 
+            if (currentZoom > 0.4) { 
+                currentZoom -= 0.2; 
+                video.style.transform = `scale(${currentZoom})`; 
+                updateBtnState('btnZoomOut', true); 
+                setTimeout(() => updateBtnState('btnZoomOut', false), 200); 
+            } 
+        }
+
+        function resetZoom() { 
+            currentZoom = 1; 
+            video.style.transform = `scale(${currentZoom})`; 
+            updateBtnState('btnResetZoom', true); 
+            setTimeout(() => updateBtnState('btnResetZoom', false), 200); 
+        }
+
+        function toggleFullScreen() { 
+            const container = document.getElementById('videoContainer'); 
+            if (!document.fullscreenElement) { 
+                container.requestFullscreen().catch(err => console.log(err)); 
+                updateBtnState('btnFullscreen', true); 
+            } else { 
+                document.exitFullscreen(); 
+                updateBtnState('btnFullscreen', false); 
+            } 
+        }
     </script>
 </body>
 </html>
