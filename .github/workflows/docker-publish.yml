@@ -72,11 +72,11 @@ jobs:
           build-args: |
             APP_VERSION=${{ steps.prep.outputs.VERSION }}
 
-      - name: Atualizar Portainer (Produção)
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: |
-          echo "🚀 Nova Tag Detectada: Disparando webhook de Produção..."
-          curl -k -X POST "${{ secrets.PORTAINER_WEBHOOK_PROD }}"
+      # - name: Atualizar Portainer (Produção)
+      #   if: startsWith(github.ref, 'refs/tags/v')
+      #   run: |
+      #     echo "🚀 Nova Tag Detectada: Disparando webhook de Produção..."
+      #     curl -k -X POST "${{ secrets.PORTAINER_WEBHOOK_PROD }}"
           
       # - name: Atualizar Portainer (Dev)
       #   if: github.ref == 'refs/heads/dev'
