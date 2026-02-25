@@ -1,0 +1,8 @@
+Dockerfile
+docker-compose.yml
+README.md
+deploy.sh
+.github
+.git/
+.gitignore/
+.dockerignore
