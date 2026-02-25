@@ -7,7 +7,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: aprendendolinux/webcam
+  IMAGE_NAME: aprendendolinux/livesystem
 
 jobs:
   build-and-push:
