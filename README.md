@@ -45,17 +45,18 @@ O serviço principal (`webrtc-stream`) repassa a câmera física do servidor Lin
 
 1. **Para usar SQLite (Mais rápido e fácil):**
    Mantenha a variável `DB_TYPE=sqlite`. O banco será salvo automaticamente em `/srv/webcam/sqlite/stream.db`. Você não precisará subir o contêiner do MySQL.
-   ```yaml
+   
+```
    environment:
      - PYTHONUNBUFFERED=1
      - DB_TYPE=sqlite
      - DB_NAME=/app/data/stream.db
-
 ```
 
 2. **Para usar MySQL (Recomendado para Produção):**
 Comente a sessão do SQLite e descomente a área do MySQL no seu arquivo. O sistema conectará automaticamente ao serviço `db` (MySQL 8+) definido no fim do compose.
-```yaml
+
+```
 environment:
   - PYTHONUNBUFFERED=1
   - DB_TYPE=mysql
@@ -63,11 +64,7 @@ environment:
   - DB_USER=stream_user
   - DB_PASS=stream_pass
   - DB_NAME=stream_db
-
 ```
-
-
-
 *Nota: O compose também inclui um contêiner opcional do **Adminer** na porta 8081 para administração gráfica do banco de dados.*
 
 ### Passo a Passo de Execução
@@ -75,11 +72,11 @@ environment:
 1. Clone o repositório e acesse a pasta do projeto.
 2. Certifique-se de que a câmera está conectada ao Linux.
 3. Suba o ambiente com o Docker Compose:
+
 ```bash
 docker-compose up -d --build
 
 ```
-
 
 4. Acesse pelo seu navegador na porta 8080: `http://IP_DO_SERVIDOR:8080`
 
